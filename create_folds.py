@@ -3,8 +3,8 @@ import os
 from sklearn import model_selection 
 
 if __name__ =="__main__":
-    input_path = "/home/sushi/code/kaggle/Melanoma-Detection-/input/"
-    df = pd.read_csv(f"{input_path}/train.csv")
+    input_path = "/home/sushi/code/Kaggle/Melanoma-Detection-/input"
+    df = pd.read_csv(os.path.join(input_path,"train.csv"))
     df["kfold"] = -1 
     df = df.sample(frac=1).reset_index(drop=True)
     y = df.target.values
@@ -14,7 +14,7 @@ if __name__ =="__main__":
         df.loc[test_idx,"kfold"] = fold_
     
     df.to_csv(f"{input_path}/train_folds.csv",index=False)
-    
+
 
 
 
