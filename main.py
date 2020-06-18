@@ -4,6 +4,7 @@ import numpy
 import pandas as pd 
 import torch.nn as nn
 import pretrainedmodels
+from torch.nn import functional as F
 
 class SEResNext50_32x4d(nn.Module):
     def __init(self,pretrained="imagenet"):
@@ -12,6 +13,12 @@ class SEResNext50_32x4d(nn.Module):
         self.out = nn.Linear(2048,1)
     
     def forward(self,image):
+        bs,_,_,_ = image.shape 
+        x = self.model.features(image)
+        x = F.adaptive_avg_pool2d(x,1)
+        x = x.reshape(bs,-1)
+
+
         
 
 
