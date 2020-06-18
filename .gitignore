@@ -147,3 +147,4 @@ models/
 *.h5
 *.pkl
 *.pth 
+.vscode/
