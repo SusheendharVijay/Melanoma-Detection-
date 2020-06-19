@@ -7,7 +7,7 @@ import pretrainedmodels
 from torch.nn import functional as F
 import albumentations 
 from wtfml.data_loaders.image import ClassificationLoader
-from apex import amp 
+#from apex import amp 
 from wtfml.utils import EarlyStopping
 from wtfml.engine import Engine
 
@@ -23,11 +23,13 @@ class SEResNext50_32x4d(nn.Module):
         x = F.adaptive_avg_pool2d(x,1)
         x = x.reshape(bs,-1)
         out = self.out(x)
+        loss = nn.BCEWithLogitsLoss()(out,targets.reshape(-1,1).type_as(out))
         return out 
     
 def train(fold):
     training_data_path = "/home/sushi/code/Kaggle/Melanoma-Detection-/input/jpeg/train224"
     df = pd.read_csv("/home/sushi/code/Kaggle/Melanoma-Detection-/input/train_folds.csv")
+    model_path = "/home/sushi/code/Kaggle/Melanoma-Detection-/models"
     device ="cuda"
     epochs=50
     train_bs = 32
@@ -54,7 +56,7 @@ def train(fold):
 
     train_dataset = ClassificationLoader(
         image_paths=train_images,
-        train_targets,
+        targets=train_targets,
         resize=None,
         augmentations=train_aug
 
@@ -62,7 +64,7 @@ def train(fold):
 
     valid_dataset = ClassificationLoader(
         image_paths=valid_images,
-        train_targets,
+        targets=train_targets,
         resize=None,
         augmentations=valid_aug
 
@@ -86,7 +88,7 @@ def train(fold):
 
     model = SEResNext50_32x4d(pretrained="imagenet")
 
-    optimizer = torch.optim.Adam((model.parameters(),lr=1e-4))
+    optimizer = torch.optim.Adam(model.parameters(),lr=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         patience=3,
@@ -94,13 +96,13 @@ def train(fold):
 
     )
 
-    model,optimizer  = amp.initialize(
-        model,
-        optimizer,
-        opt_level ="01"
-        verbosity=0
+    #model,optimizer  = amp.initialize(
+    #    model,
+    #    optimizer,
+    #   opt_level ="01",
+    #   verbosity=0
         
-    )
+    #)
 
     es = EarlyStopping(patience=5,mode="max")
     
@@ -113,13 +115,28 @@ def train(fold):
             fp16=True
         )
 
-    predictions,valid_loss = Engine.evaluate(
-        train_loader,
-        model,
-        optimizer,
+        predictions,valid_loss = Engine.evaluate(
+            train_loader,
+            model,
+            optimizer,
+            device,
 
-    )
-    
+        )
+
+        predictions  = np.vstack((predictions)).ravel()
+        auc = metrics.roc_auc_score(valid_targets,predictions)
+        scheduler.step(auc)
+        print(f"epoch={epoch}, auc:{auc}")
+
+        es(auc,model,model_path)
+        if es.early_stop:
+            print("early stopping")
+            break
+
+if __name__=="__main__":
+    train(fold=0)     
+
+        
 
 
 
